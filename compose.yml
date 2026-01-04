@@ -1,0 +1,102 @@
+services:
+  frontend:
+    build: ../voluntree-angular/.
+    depends_on:
+      - backend
+    ports:
+      - 127.0.0.1:4200:80
+    restart: unless-stopped
+    networks:
+      - frontend
+    profiles: [prod]
+
+  backend:
+    build: ../voluntree-spring/.
+    env_file: './.env'
+    depends_on:
+      - redis
+    ports:
+      - 127.0.0.1:8080:8080
+    restart: unless-stopped
+    networks:
+      - frontend
+      - backend
+    profiles: [prod]
+
+  redis:
+    image: redis:alpine
+    env_file: './.env'
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}", "--protected-mode", "yes"]
+    networks:
+      - backend
+    restart: unless-stopped
+
+  frontend-dev:
+    build: ../voluntree-angular/.
+    depends_on:
+      - backend-dev
+    ports:
+      - 127.0.0.1:4201:80
+    networks:
+      - frontend-dev
+    profiles: [dev]
+
+  backend-dev:
+    build: ../voluntree-spring/.
+    env_file: './.env'
+    depends_on:
+      - db
+      - redis-dev
+    ports:
+      - 127.0.0.1:8081:8080
+    networks:
+      - frontend-dev
+      - backend-dev
+    profiles: 
+      - dev
+      - dev-back
+
+  db:
+    image: postgres
+    environment:
+      POSTGRES_USER: voluntree
+      POSTGRES_PASSWORD: voluntree
+      POSTGRES_DB: voluntree
+    profiles: 
+      - dev
+      - dev-back
+    ports:
+      - 127.0.0.1:5432:5432
+    networks:
+      - backend-dev
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U voluntree']
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    volumes:
+      - db-data:/var/lib/postgresql
+
+  redis-dev:
+    image: redis:alpine
+    env_file: './.env'
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}", "--protected-mode", "yes"]
+    networks:
+      - backend-dev
+    profiles: 
+      - dev
+      - dev-back
+
+volumes:
+  db-data:
+
+networks:
+  frontend:
+    driver: bridge
+  backend:
+    driver: bridge
+  frontend-dev:
+    driver: bridge
+  backend-dev:
+    driver: bridge
